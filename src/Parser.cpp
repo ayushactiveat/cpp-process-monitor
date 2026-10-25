@@ -4,7 +4,7 @@
 
 std::string ProcParser::readFile(const std::string& path) {
     std::ifstream file(path);
-    if (!file.is_open()) return ""; 
+    if (!file.is_open()) return "";
     std::string content;
     std::getline(file, content);
     return content;
@@ -22,10 +22,10 @@ ProcessInfo ProcParser::parseStat(const std::string& pid, const std::string& nam
 
     ss >> p.utime >> p.stime;
 
-    for (int i = 0; i < 6; i++) ss >> temp;
+    for (int i = 0; i < 7; i++) ss >> temp;
 
-    ss >> p.memory_kb;
+    long vsize;
+    ss >> vsize >> p.memory_kb;
 
     return p;
 }
-
