@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include)
 
 add_executable(monitor src/main.cpp src/Parser.cpp)
+target_link_libraries(monitor pthread)
 
 include(FetchContent)
 FetchContent_Declare(

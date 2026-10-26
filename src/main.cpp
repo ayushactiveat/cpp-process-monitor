@@ -3,45 +3,61 @@
 #include <filesystem>
 #include <vector>
 #include <iomanip>
+#include <thread>
+#include <chrono>
+#include <map>
+#include <unistd.h>
 #include "../include/Parser.hpp"
 
 using namespace std;
 namespace fs = std::filesystem;
 
 int main() {
-    cout << "=== Linux Process Monitor (Modular) ===\n";
-    vector<ProcessInfo> processes;
+    long ticks_per_sec = sysconf(_SC_CLK_TCK);
+    map<string, long> prev_ticks;
 
-    for (const auto& entry : fs::directory_iterator("/proc")) {
-        string pid = entry.path().filename().string();
-        if (pid.find_first_not_of("0123456789") == string::npos) {
-            string name = ProcParser::readFile("/proc/" + pid + "/comm");
-            string stat = ProcParser::readFile("/proc/" + pid + "/stat");
-
-            if (!name.empty() && !stat.empty()) {
-                processes.push_back(ProcParser::parseStat(pid, name, stat));
+    while (true) {
+        vector<ProcessInfo> processes;
+        for (const auto& entry : fs::directory_iterator("/proc")) {
+            string pid = entry.path().filename().string();
+            if (pid.find_first_not_of("0123456789") == string::npos) {
+                string name = ProcParser::readFile("/proc/" + pid + "/comm");
+                string stat = ProcParser::readFile("/proc/" + pid + "/stat");
+                if (!name.empty() && !stat.empty()) {
+                    processes.push_back(ProcParser::parseStat(pid, name, stat));
+                }
             }
         }
+
+        for (auto& p : processes) {
+            long total_ticks = p.utime + p.stime;
+            if (prev_ticks.find(p.pid) != prev_ticks.end()) {
+                long delta = total_ticks - prev_ticks[p.pid];
+                p.cpu_percent = (double)delta / ticks_per_sec * 100.0;
+            }
+            prev_ticks[p.pid] = total_ticks;
+        }
+
+        sort(processes.begin(), processes.end(), [](const ProcessInfo& a, const ProcessInfo& b) {
+            return a.cpu_percent > b.cpu_percent;
+        });
+
+        cout << "\033[2J\033[1;1H";
+        cout << "=== Linux Process Monitor (Day 6) ===\n\n";
+        cout << left << setw(10) << "PID" << setw(10) << "CPU(%)" << setw(15) << "MEMORY(KB)" << "NAME" << "\n";
+        cout << "------------------------------------------------------------\n";
+        
+        int count = 0;
+        for (const auto& p : processes) {
+            if (count >= 15) break;
+            cout << left << setw(10) << p.pid 
+                 << setw(10) << fixed << setprecision(2) << p.cpu_percent 
+                 << setw(15) << p.memory_kb 
+                 << p.name << "\n";
+            count++;
+        }
+
+        this_thread::sleep_for(chrono::seconds(1));
     }
-
-    sort(processes.begin(), processes.end(), [](const ProcessInfo& a, const ProcessInfo& b) {
-        return a.memory_kb > b.memory_kb;
-    });
-
-    cout << "Found " << processes.size() << " active processes.\n\n";
-
-    cout << left << setw(10) << "PID" << setw(15) << "MEMORY(KB)" << "NAME" << "\n";
-    cout << "--------------------------------------------------\n";
-
-    int count = 0;
-    for (const auto& p : processes) {
-        if (count >= 10) break;
-
-        cout << left << setw(10) << p.pid
-             << setw(15) << p.memory_kb
-             << p.name << "\n";
-        count++;
-    }
-
     return 0;
 }
