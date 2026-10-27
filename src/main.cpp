@@ -43,7 +43,7 @@ int main() {
         });
 
         cout << "\033[2J\033[1;1H";
-        cout << "=== Linux Process Monitor (Day 6) ===\n\n";
+        cout << "=== Linux Process Monitor ===\n\n";
         cout << left << setw(10) << "PID" << setw(10) << "CPU(%)" << setw(15) << "MEMORY(KB)" << "NAME" << "\n";
         cout << "------------------------------------------------------------\n";
         
@@ -56,7 +56,6 @@ int main() {
                  << p.name << "\n";
             count++;
         }
-
         this_thread::sleep_for(chrono::seconds(1));
     }
     return 0;
