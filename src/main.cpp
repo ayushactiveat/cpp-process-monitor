@@ -14,29 +14,40 @@ namespace fs = std::filesystem;
 
 int main() {
     long ticks_per_sec = sysconf(_SC_CLK_TCK);
-    map<string, long> prev_ticks;
+    map<string, pair<long, long>> prev_ticks;
+    auto prev_time = chrono::steady_clock::now();
 
     while (true) {
+        auto current_time = chrono::steady_clock::now();
+        double elapsed_sec = chrono::duration<double>(current_time - prev_time).count();
+        prev_time = current_time;
+
         vector<ProcessInfo> processes;
         for (const auto& entry : fs::directory_iterator("/proc")) {
             string pid = entry.path().filename().string();
             if (pid.find_first_not_of("0123456789") == string::npos) {
                 string name = ProcParser::readFile("/proc/" + pid + "/comm");
                 string stat = ProcParser::readFile("/proc/" + pid + "/stat");
+                
+                // Skips processes that died mid-read or lacked permissions (returns empty string)
                 if (!name.empty() && !stat.empty()) {
                     processes.push_back(ProcParser::parseStat(pid, name, stat));
                 }
             }
         }
 
+        map<string, pair<long, long>> next_prev_ticks;
+
         for (auto& p : processes) {
-            long total_ticks = p.utime + p.stime;
             if (prev_ticks.find(p.pid) != prev_ticks.end()) {
-                long delta = total_ticks - prev_ticks[p.pid];
-                p.cpu_percent = (double)delta / ticks_per_sec * 100.0;
+                long prev_ut = prev_ticks[p.pid].first;
+                long prev_st = prev_ticks[p.pid].second;
+                p.cpu_percent = ProcParser::calculateCpuPercent(p.utime, p.stime, prev_ut, prev_st, ticks_per_sec, elapsed_sec);
             }
-            prev_ticks[p.pid] = total_ticks;
+            next_prev_ticks[p.pid] = {p.utime, p.stime};
         }
+        // Rebuild map to prevent dead PIDs from lingering and causing negative deltas
+        prev_ticks = next_prev_ticks;
 
         sort(processes.begin(), processes.end(), [](const ProcessInfo& a, const ProcessInfo& b) {
             return a.cpu_percent > b.cpu_percent;
