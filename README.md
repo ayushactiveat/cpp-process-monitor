@@ -1,31 +1,51 @@
 # Linux Process Monitor (C++17)
 
-A command-line process monitor for Linux written in C++17. Instead of relying on external libraries, it reads directly from the `/proc` virtual filesystem to grab live process stats, calculates CPU usage by comparing tick samples over time, and tracks actual memory usage.
+![CI](https://github.com/ayushactiveat/cpp-process-monitor/actions/workflows/ci.yml/badge.svg)
 
-### What it does
+A small command-line process monitor for Linux. It reads the `/proc`
+filesystem directly (no external libraries) and shows the top 15 processes
+by CPU usage, refreshed every second.
 
-- Reads `/proc` directly to find running processes and their stats.
-- Calculates CPU % by comparing the delta between two successive samples (utime/stime).
-- Handles processes dying mid-read (skips them gracefully instead of crashing).
-- Parses memory usage (RSS) from `/proc/[pid]/stat`.
-- Includes a GoogleTest suite to test the parsing logic against fake `/proc` data.
-  
-I loaded the CPU with a `yes > /dev/null` loop to test the delta sampling logic:
-<img width="467" height="362" alt="Screenshot 2026-10-28 083542" src="https://github.com/user-attachments/assets/015a5271-cf1e-48a2-a6d4-7b5d65db8ead" />
+## How it works
 
-### Structure
+- Scans the numeric directories in `/proc` and reads each process's `comm`
+  and `stat` files.
+- **CPU %**: compares `utime + stime` between two samples and divides by the
+  real elapsed time between them (measured with `steady_clock`).
+- **Memory**: RSS from `/proc/[pid]/stat`, which is counted in pages, converted
+  to KB using the system page size.
+- Process names with spaces (like `Web Content`) are handled by parsing the
+  stat line after the last `)`.
+- Processes that exit mid-read, or whose files can't be opened (permissions),
+  are skipped instead of crashing the monitor. Truncated or garbled stat
+  lines are parsed as zeros rather than throwing.
 
-- `include/Process.hpp`: The struct holding process data.
-- `include/Parser.hpp` & `src/Parser.cpp`: The parser that reads `/proc` and handles missing files/permissions.
-- `src/main.cpp`: The main loop. It iterates through processes, sorts by CPU, and prints the table.
-- `tests/`: Unit tests.
+## Structure
 
-### Build and Run
+- `include/Process.hpp`: struct holding per-process data
+- `include/Parser.hpp`, `src/Parser.cpp`: file reading, stat parsing and the
+  CPU calculation
+- `src/main.cpp`: scanning loop, sorting and table output
+- `tests/test_parser.cpp`: GoogleTest unit tests
 
-You'll need `g++` and `cmake` installed.
+## Build, run and test
 
-```bash
-mkdir build && cd build
-cmake ..
-make
-./monitor
+You need g++ and CMake (3.14 or newer). GoogleTest is downloaded on the
+first configure, so that step needs internet access.
+
+    mkdir build && cd build
+    cmake ..
+    make
+    ./monitor                   # Ctrl+C to quit
+    ctest --output-on-failure   # run the tests
+
+The tests use hand-written sample `/proc/[pid]/stat` lines (including names
+with spaces, parentheses in the name, and truncated lines), plus checks for
+the CPU calculation and for reading missing or empty files.
+
+## Limitations
+
+- Linux only. Developed and tested on Ubuntu under WSL2.
+- CPU % is per core, so a multi-threaded process can go above 100%.
+- The first screen shows 0% for everything because CPU needs two samples.
+- No filtering or sort options yet.
