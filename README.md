@@ -6,6 +6,10 @@ A small command-line process monitor for Linux. It reads the `/proc`
 filesystem directly (no external libraries) and shows the top 15 processes
 by CPU usage, refreshed every second.
 
+## Example
+
+![Example output](docs/screenshot.png)
+
 ## How it works
 
 - Scans the numeric directories in `/proc` and reads each process's `comm`
