@@ -9,6 +9,9 @@ A high-performance, command-line process monitor for Linux built from scratch in
 - **OS-Level Resilience**: Handles race conditions and edge cases, such as processes terminating mid-read, preventing crashes.
 - **Memory Profiling**: Extracts Resident Set Size (RSS) from `/proc/[pid]/stat` to display actual physical memory usage.
 - **Test-Driven Development**: Includes a unit testing suite built with **GoogleTest** to validate parsing logic using mocked `/proc` data.
+- *Live output demonstrating CPU delta-sampling under heavy system load.*
+- <img width="467" height="362" alt="Screenshot 2026-10-28 083542" src="https://github.com/user-attachments/assets/015a5271-cf1e-48a2-a6d4-7b5d65db8ead" />
+
 
 ## 🛠️ Architecture
 
